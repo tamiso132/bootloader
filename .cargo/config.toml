@@ -1,0 +1,11 @@
+[unstable]
+build-std = ["core"]
+build-std-features= ["compiler-builtins-mem"]
+
+[target.amd64]
+rustflags = [
+    "-C", "link-arg=-Ttargets/amd64/link.ld",
+    "-C", "linker=ld",
+    "-C", "linker-flavor=ld",
+    "-Z", "thinlto=no",
+]
