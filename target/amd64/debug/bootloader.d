@@ -1,1 +1,0 @@
-/home/tamiso/projects/bootloader/target/amd64/debug/bootloader: /home/tamiso/projects/bootloader/src/asm/boot.s /home/tamiso/projects/bootloader/src/asm/mod.rs /home/tamiso/projects/bootloader/src/main.rs

@@ -1,6 +1,4 @@
-.code16
-.section .boot, "awx"
-.global _start
+
 
 // what we need to do
 // 1: activate A20
@@ -22,8 +20,12 @@
 
 //A20 Line arc
 
+.code16
+.section .boot, "awx"
+.global _start
 
 _start:
+    mov ax, 0
     mov sp, 0x7c00 // Allocated 30kib of stack memory
     mov eax, offset .Lreset_cs
     push 0x00
@@ -62,25 +64,10 @@ _start:
             //CLD, left->right
             //STD, right->left
 
-.macro mEnableA20 // calls all A20_enable_functions
-    call check_20
 
-    mSetA20BIOS
-    call check_20
-  
-    mSetA20Keyboard
-    call check_20
-  
-    mSetA20FastGate
-    call CheckA20
 
-    enable_A20_fail
 
-.endm
 
-.macro mSetA20BIOS // bios function to enable A20 line
-    mov ax, 0x2401
-.endm
 // enabling A20 line through the 8042 keyboard controller
 //  1: disable the keyboard
 //  2: tell controller that we want to read input
@@ -93,12 +80,37 @@ _start:
     // IN --> read from a port
     // OUT --> write to a port
 
-.macroSetA20Keyboard
+
+mSetA20BIOS: // bios function to enable A20 line
+    mov ax, 0x2401
+    int 0x15
+ret
+
+mSetA20FastGate:
+    in al, 0x92
+    or al, 2
+    out 0x92, al
+    ret
+
+wait_8042_command: // wait for the keyboard to be ready for command
+    in al,0x64
+    test al,2
+    jnz wait_8042_command
+    ret
+
+wait_8042_data:
+    in al,0x64
+    test al,1
+    jz wait_8042_data
+ret
+
+
+
     
-    cli // disable interrupts
+SetA20Keyboard:
     call wait_8042_command
-    mov al,0xAD // disable keyboard
-    out 0x64,al
+    mov al,0xAD 
+    out 0x64,AL
 
     call wait_8042_command
     mov al,0xD0 // read from input
@@ -125,48 +137,23 @@ _start:
     call wait_8042_command
 
     sti // enable commands
-.endm
-    
-.func wait_8042_command
-wait_8042_command: // wait for the keyboard to be ready for command
-    in al,0x64
-    test al,2
-    jnz wait_8042_command
-.endfunc
-
-.func wait_8042_data
-Wait_8042_data:
-    in al,0x64
-    test al,1
-    jz wait_8042_data
     ret
-.endfunc
 
-check_20:
-    pushf
-    push ds
-    push es
-    push di
-    push si 
 
-    cli
 
-    xor ax, ax // ax = 0
-    mov es, ax
-    not ax // ax = 0xFFFF
-    mov ds, ax
-    
-    mov di, 0x0500
-    mov si, 0x0510
+mEnableA20: // calls all A20_enable_functions
 
-    mov al, byte [es:di] // al = source operand
-    push ax
-    mov byte [es:di], 0x00 
-    mov byte [ds:si] 0xff
+    call mSetA20BIOS
+  
+    call mSetA20Keyboard
+  
+    call mSetA20FastGate
 
-    pop ax
-    mov ax, 0
-    je check_120_exit
+    jmp enable_A20_fail
+
+    ret
+
+
 check_120_exit:
     pop si
     pop di
@@ -174,9 +161,6 @@ check_120_exit:
     pop ds
     popf
     jmp A20_enabled
-    ret
-loop:
-    jmp loop
 A20_enabled:
 
 .org 510
